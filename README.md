@@ -30,6 +30,18 @@ config/models.yaml 保存模型 ID、提供商、上下文上限和百万 Token 
 
 **付费演示**在 model-validation 环境中配置所选供应商的 OPENAI_API_KEY、GLM_API_KEY 或 GEMINI_API_KEY，限制部署分支为 main，再由个人仓库所有者手动调度 Maintainer model validation。该工作流只允许从 main 运行内置游戏，最多两步、0.05 美元。组织仓库需由管理员将所有者检查替换为经审核的维护者身份白名单。普通 PR、fork、评论、定时任务不会触发付费验证。
 
+## 私有多账号执行与加密归档
+
+在独立私有部署仓库保留 Private deployment validation 工作流，配置 private-validation 环境并限制 main 分支。个人仓库由所有者触发。在该仓库中安装受信任的游戏适配器、角色卡和价格表。环境 Secret PLAYTEST_SEATS_JSON 为账号数组，每项提供 game、persona、username、password、url。每个角色卡的测试身份须与分配的账号一致。ARCHIVE_CERT_PEM 为接收方公钥证书的 PEM 内容，解密私钥留在接收端。
+
+选择 local 或 matrix 和 1、2、5 个席位。所有机器按总席位数预分同一批美元预算。每次调度只运行一批，多个私有调度串行。每个分片先在临时私有目录生成证据，再用 OpenSSL CMS 和 AES-256-GCM 加密归档。工作流只上传 evidence.cms。解密示例：
+
+```sh
+openssl cms -decrypt -binary -inform DER -in evidence.cms -recip recipient.pem -inkey recipient-key.pem -out evidence.tar.gz
+```
+
+私有工作流可以选择自己的独占临时 Linux self-hosted Runner，公开演示固定使用 ubuntu-latest。真实模型验证请在供应商允许的地区、配额与数据处理条件下运行。
+
 ## 接入自己的游戏
 
 1. 在私有运行项目建立 games/custom，参考 games/demo 的 game.yaml、adapter.py 与 personas/explorer.yaml。适配器从正常登录界面建立会话，通过只读版本指纹和 revision 检查连续性，按路径和方法限定允许产生副作用的动作，给截图标出需遮盖的身份信息区域。角色卡只供模型读取公开画像字段。
@@ -45,4 +57,3 @@ config/models.yaml 保存模型 ID、提供商、上下文上限和百万 Token 
 GitHub-hosted Actions 任务必须与关联仓库软件的生产、测试、部署或发布相关，且资源负担须相称。仓库公开本身不授予持续运行私人业务的资格。做长期或大规模私人测试前应向 GitHub 确认具体用法，或改在自己管理的私有运行器执行。[GitHub Actions 附加条款](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#actions)
 
 框架和内置演示采用 [MIT 许可证](LICENSE)。
-

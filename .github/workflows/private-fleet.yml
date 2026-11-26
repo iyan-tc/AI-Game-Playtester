@@ -1,0 +1,88 @@
+name: Private deployment validation
+on:
+  workflow_dispatch:
+    inputs:
+      topology:
+        type: choice
+        description: Execution topology
+        options: [local, matrix]
+      count:
+        type: choice
+        description: Number of isolated accounts
+        options: ['1', '2', '5']
+      runner:
+        type: choice
+        description: Runner owned by this private deployment
+        options: [ubuntu-latest, self-hosted]
+permissions:
+  contents: read
+concurrency:
+  group: private-validation-fleet
+  cancel-in-progress: false
+jobs:
+  plan:
+    if: github.event.repository.private && github.ref == 'refs/heads/main' && github.actor == github.repository_owner && github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - id: plan
+        env: {COUNT: '${{ inputs.count }}', TOPOLOGY: '${{ inputs.topology }}'}
+        run: |
+          python - <<'PY'
+          import json, os
+          count = int(os.environ["COUNT"])
+          assert count in (1, 2, 5)
+          shards = list(range(count)) if os.environ["TOPOLOGY"] == "matrix" else [-1]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print("shards=" + json.dumps(shards), file=output)
+          PY
+  play:
+    needs: plan
+    environment: private-validation
+    # A self-hosted deployment must supply an isolated ephemeral Linux runner.
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: '3.12', cache: ''}
+      - run: pip install -e . && python -m playwright install --with-deps chromium
+      - name: Validate independent accounts under one batch budget
+        env:
+          COUNT: ${{ inputs.count }}
+          SHARD: ${{ matrix.shard }}
+          PLAYTEST_SEATS_JSON: ${{ secrets.PLAYTEST_SEATS_JSON }}
+          PLAYTEST_MODEL: ${{ vars.PLAYTEST_MODEL }}
+          PLAYTEST_MAX_BUDGET_USD: ${{ vars.PLAYTEST_MAX_BUDGET_USD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+          ARCHIVE_CERT_PEM: ${{ secrets.ARCHIVE_CERT_PEM }}
+        shell: bash
+        run: |
+          set -eu
+          umask 077
+          temp=$(mktemp -d)
+          trap 'rm -rf -- "$temp"' EXIT
+          printf '%s\n' "$ARCHIVE_CERT_PEM" > "$temp/cert.pem"
+          openssl x509 -in "$temp/cert.pem" -noout >/dev/null
+          mkdir "$temp/evidence"
+          result=0
+          export PLAYTEST_MODEL="${PLAYTEST_MODEL:-gpt-6.1-terra}"
+          python -m playtester.fleet --count "$COUNT" --shard "$SHARD" --budget "${PLAYTEST_MAX_BUDGET_USD:-1}" --output "$temp/evidence" >"$temp/run.log" 2>&1 || result=$?
+          tar -C "$temp" -czf "$temp/evidence.tar.gz" evidence run.log
+          openssl cms -encrypt -binary -aes-256-gcm -outform DER -in "$temp/evidence.tar.gz" -out evidence.cms "$temp/cert.pem"
+          exit "$result"
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: encrypted-validation-${{ matrix.shard }}
+          path: evidence.cms
+          retention-days: 14
+
