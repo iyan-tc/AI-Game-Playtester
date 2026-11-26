@@ -64,6 +64,9 @@ class Reporter:
                              f"　{d.experience_reflection.notable_good}　{d.experience_reflection.friction_or_issue}"
                              f"　{d.emotion.quit_reason}　我想{d.goal_update}。\n\n"
                              f"操作 {r.executed}，可见反馈 {r.detector_status}。[操作前]({r.before}) · [操作后]({r.after})")
+                if r.animation_samples:
+                    samples = " · ".join(f"[采样 {i}]({p})" for i,p in enumerate(r.animation_samples,1))
+                    diary.append(f"动画期间有 {r.held_change_fraction:.1%} 的采样区域保持了相对于操作前的新颜色。{samples}")
         first_urge = next((r for r in s.steps if r.decision.emotion.quit_reason or r.executed == "natural_quit"), None)
         if first_urge:
             summary.append(f"首次明确表达退出意愿在第 {first_urge.step} 步。"

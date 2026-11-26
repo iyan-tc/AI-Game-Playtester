@@ -81,6 +81,16 @@ def test_detection(rect,status):
     assert classify(base,[base,base], error=True)=="runtime_error"
 
 
+def test_stable_panel_changes_can_be_reviewed_during_animation():
+    from playtester.detector import persistent_change
+    base = frame()
+    first = frame((0, 0, 59, 99))
+    second = frame((0, 0, 69, 99))
+    assert classify(base, [first, second]) == "loading_or_animation"
+    assert .55 < persistent_change(base, first, second) < .65
+    assert persistent_change(base, first, base) == 0
+
+
 def test_revision_and_identity(config, state):
     game, persona, _ = config
     with pytest.raises(StopRun):
@@ -131,4 +141,3 @@ def test_budget_exit_produces_all_reports(tmp_path):
     data=json.loads((folder/"memory_checkpoint.json").read_bytes())
     assert data["status"]=="BUDGET_EXHAUSTED" and data["usage"]==[]
     assert inspect(folder,False)["artifacts"]
-

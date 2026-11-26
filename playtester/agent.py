@@ -64,6 +64,12 @@ def play(browser, player, reporter, persist, target, pause_at=None):
                 decision=decision, executed=executed, detector_status=status, before=before_path, after=after_path,
                 elapsed_seconds=monotonic()-started, revision=browser.adapter.revision,
                 patience=max(0, min(10, state.patience+emotion.patience_delta)))
+            if status == "loading_or_animation":
+                for index, sample_frame in enumerate(getattr(browser, "animation_samples", ())):
+                    path = f"{stem}_sample_{index+1}.png"
+                    (folder / path).write_bytes(sample_frame)
+                    record.animation_samples.append(path)
+                record.held_change_fraction = getattr(browser, "held_change_fraction", None)
             missed = executed in {"click", "double_click"} and status == "no_visible_change"
             state.missed_clicks = state.missed_clicks + 1 if missed else 0
             if status in {"subtle_feedback", "major_transition", "modal_or_panel_change"}:
@@ -101,4 +107,3 @@ def play(browser, player, reporter, persist, target, pause_at=None):
     finally:
         if session:
             session["end_time"] = now()
-

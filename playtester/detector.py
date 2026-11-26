@@ -35,6 +35,23 @@ def classify(before, frames, point=None, pending=False, writes=False, error=Fals
     return "no_visible_change"
 
 
+def persistent_change(before, a, b):
+    """Fraction of the viewport that visibly moved away from the initial frame
+    and then held its new color across the two final samples."""
+    def reduced(frame):
+        with Image.open(BytesIO(frame)) as im:
+            return im.convert("RGB").resize((64, 64), Image.Resampling.BOX)
+    def magnitude(left, right):
+        channels = ImageChops.difference(left, right).split()
+        return ImageChops.lighter(channels[0], ImageChops.lighter(channels[1], channels[2]))
+    initial, previous, final = map(reduced, (before, a, b))
+    changed = ImageChops.darker(magnitude(initial, previous), magnitude(initial, final))
+    held = magnitude(previous, final)
+    mask = ImageChops.multiply(changed.point(lambda n: 255 if n >= 24 else 0),
+                               held.point(lambda n: 255 if n <= 10 else 0))
+    return mask.histogram()[255] / (mask.width * mask.height)
+
+
 def sample(browser, before, point, writes_before):
     frames = []
     for delay in (300, 700, 1200, 1200, 1200):
@@ -42,6 +59,10 @@ def sample(browser, before, point, writes_before):
         frames.append(browser.screenshot())
         if len(frames) >= 2 and stable(*frames[-2:]) and not browser.pending:
             break
-    return frames[-1], classify(before, frames, point, browser.pending,
-                                browser.writes != writes_before, browser.fault is not None)
-
+    status = classify(before, frames, point, browser.pending, browser.writes != writes_before, browser.fault is not None)
+    browser.animation_samples = ()
+    browser.held_change_fraction = None
+    if status == "loading_or_animation" and len(frames) >= 2:
+        browser.animation_samples = tuple(frames[-2:])
+        browser.held_change_fraction = persistent_change(before, *browser.animation_samples)
+    return frames[-1], status

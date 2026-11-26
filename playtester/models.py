@@ -86,6 +86,8 @@ class StepRecord(Strict):
     revision: int | None
     patience: int
     attempt_evidence: str = ""
+    animation_samples: list[str] = Field(default_factory=list)
+    held_change_fraction: Coord | None = None
 
 
 class Issue(Strict):
@@ -100,4 +102,3 @@ class Issue(Strict):
     observed: str
     impact: str
     suggestion: str
-
