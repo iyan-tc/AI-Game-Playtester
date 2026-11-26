@@ -21,12 +21,16 @@ class Ledger:
         self.settings = settings
         self.persist = persist
 
-    def reserve(self, step, model, tokens):
+    def check(self, model, tokens):
         rates = self.settings.models[model]
         estimate = (tokens * max(rates.input, rates.cache_write, rates.cache_read) +
                     self.settings.max_output_tokens * rates.output) / MILLION
         if self.state.spent_usd + self.state.reserved_usd + estimate > self.settings.max_budget_usd:
             raise StopRun("BUDGET_EXHAUSTED", f"调用前拦截，本次最高费用 {estimate}")
+        return estimate
+
+    def reserve(self, step, model, tokens):
+        estimate = self.check(model, tokens)
         row = dict(step=step, timestamp=now(), model=model, reasoning_effort=self.settings.reasoning_effort,
                    status="reserved", uncached_input_tokens=None, cache_write_tokens=None,
                    cache_read_tokens=None, output_tokens=None, reasoning_tokens=None, cache_hit_rate=None,
@@ -66,4 +70,3 @@ class Ledger:
         self.persist()
         if cost > estimate:
             raise StopRun("PRICE_BOUND_ERROR", "实际用量超过预留，暂停后续调用")
-

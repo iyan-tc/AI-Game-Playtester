@@ -76,8 +76,8 @@ jobs:
           result=0
           export PLAYTEST_MODEL="${PLAYTEST_MODEL:-gpt-6.1-terra}"
           python -m playtester.fleet --count "$COUNT" --shard "$SHARD" --budget "${PLAYTEST_MAX_BUDGET_USD:-1}" --output "$temp/evidence" >"$temp/run.log" 2>&1 || result=$?
-          tar -C "$temp" -czf "$temp/evidence.tar.gz" evidence run.log
-          openssl cms -encrypt -binary -aes-256-gcm -outform DER -in "$temp/evidence.tar.gz" -out evidence.cms "$temp/cert.pem"
+          mv "$temp/run.log" "$temp/evidence/runner.log"
+          python -m playtester.seal "$temp/evidence" "$temp/cert.pem" evidence.cms
           exit "$result"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -85,4 +85,3 @@ jobs:
           name: encrypted-validation-${{ matrix.shard }}
           path: evidence.cms
           retention-days: 14
-

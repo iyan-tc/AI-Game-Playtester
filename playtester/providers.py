@@ -55,8 +55,10 @@ class VendorPlayer:
         thinking = min(maximum//2, {"low":128, "medium":768, "high":4096}[effort])
         body = dict(contents=content,systemInstruction=system,generationConfig=dict(maxOutputTokens=maximum,
                     responseMimeType="application/json",thinkingConfig={"thinkingBudget":thinking}))
+        local_bound = input_bound(len((self.rules+text).encode()), *size)
+        self.ledger.check(model, local_bound)
         count = self.post(prefix+":countTokens",headers,{"generateContentRequest":{"model":"models/"+model,**body}})
-        bound = max(count["totalTokens"], input_bound(len((self.rules+text).encode()), *size))
+        bound = max(count["totalTokens"], local_bound)
         return prefix+":generateContent",headers,body,bound
 
     def decode(self, response):
@@ -91,4 +93,3 @@ class VendorPlayer:
                 if attempt==3 or (status and status<500 and status not in {408,429}):
                     raise StopRun("API_FAILED",f"{type(exc).__name__} {status or ''}") from None
                 time.sleep(2**(attempt-1))
-

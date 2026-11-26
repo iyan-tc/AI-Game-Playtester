@@ -49,6 +49,7 @@ class Player:
             # No Responses generation is sent until its full ceiling has been reserved on disk.
             row = None
             try:
+                self.ledger.check(model, bound)
                 count = self.client.responses.input_tokens.count(**common).input_tokens
                 row = self.ledger.reserve(state.step_index + 1, model, max(bound, count))
                 result = self.client.responses.create(**common, store=False,
@@ -73,4 +74,3 @@ class Player:
                 if attempt == 3:
                     raise StopRun("API_FAILED", label) from None
                 time.sleep(2 ** (attempt - 1))
-
