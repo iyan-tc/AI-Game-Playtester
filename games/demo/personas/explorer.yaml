@@ -1,0 +1,9 @@
+id: explorer
+name: 灯塔巡护员
+account_alias: 演示玩家
+test_account: ai_demo
+initial_patience: 10
+quit_threshold: 8
+profile: 喜欢辨认灯号和尝试不同海岸的航线。看不清下一座灯塔时会犹豫，重复劳动时愿意提前离开。
+dimensions: [新手引导, 序幕节奏, 阅读疲劳, 人物表现, 美术氛围, 经营深度]
+

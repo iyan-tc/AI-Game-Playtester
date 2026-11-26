@@ -1,0 +1,4 @@
+players:
+  - {game: custom, persona: explorer_one, username_env: PLAYER_ONE_NAME, password_env: PLAYER_ONE_PASSWORD}
+  - {game: custom, persona: explorer_two, username_env: PLAYER_TWO_NAME, password_env: PLAYER_TWO_PASSWORD}
+

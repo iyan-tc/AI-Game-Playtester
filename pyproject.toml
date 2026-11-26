@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-game-playtester"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["openai>=2.54,<3", "playwright>=1.51,<2", "Pillow>=11,<13", "PyYAML>=6,<7", "pydantic>=2.10,<3"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27"]
+
+[project.scripts]
+playtester = "playtester.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["playtester*", "games*", "config"]
+
+[tool.setuptools.package-data]
+games = ["*/game.yaml", "*/personas/*.yaml", "*/game.js"]
+config = ["models.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

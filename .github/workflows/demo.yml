@@ -1,0 +1,60 @@
+name: Browser integration
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      topology:
+        type: choice
+        description: Browser concurrency
+        options: [single, local-2, local-5, matrix-2, matrix-5]
+        default: single
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      workers: ${{ steps.plan.outputs.workers }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: '3.12', cache: ''}
+      - run: pip install -e '.[test]' && python -m pytest -q
+      - id: plan
+        env: {TOPOLOGY: '${{ inputs.topology }}'}
+        run: |
+          case "$TOPOLOGY" in
+            local-2) workers=2; shards='[1]';;
+            local-5) workers=5; shards='[1]';;
+            matrix-2) workers=1; shards='[1,2]';;
+            matrix-5) workers=1; shards='[1,2,3,4,5]';;
+            *) workers=1; shards='[1]';;
+          esac
+          echo "workers=$workers" >> "$GITHUB_OUTPUT"
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+  chromium:
+    needs: unit
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.unit.outputs.shards) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: '3.12', cache: ''}
+      - run: pip install -e . && python -m playwright install --with-deps chromium
+      - name: Play the bundled demo, reopen Chromium, and check the saved revision
+        env: {WORKERS: '${{ needs.unit.outputs.workers }}'}
+        run: python -m playtester.demo --workers "$WORKERS" --steps 4 --metrics metrics.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: numeric-demo-metrics-${{ matrix.shard }}
+          path: metrics.json
+          retention-days: 14
+

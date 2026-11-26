@@ -1,0 +1,9 @@
+default_model: gpt-6.1-terra
+reasoning_effort: medium
+max_output_tokens: 1400
+max_budget_usd: 1.0
+models:
+  # Reference tariff, USD per million tokens. Verify your current contract before a paid run.
+  gpt-6.1-terra: {provider: openai, input: 1, cache_write: 1.25, cache_read: 0.05, output: 5}
+  glm-4.6v: {provider: glm, input: 0.3, cache_write: 0.3, cache_read: 0.05, output: 0.9, context_limit: 131072}
+  gemini-2.5-flash: {provider: gemini, input: 0.30, cache_write: 0.30, cache_read: 0.03, output: 2.50}

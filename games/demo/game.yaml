@@ -1,0 +1,8 @@
+id: demo
+adapter: games.demo.adapter
+url: http://127.0.0.1:8765/
+allowed_hosts: ["127.0.0.1:8765"]
+viewport: {width: 390, height: 640}
+release_path: /game.js
+sha256: 3e2526cf9ccea8bdecacc65f6bc3504b5ca5b902bce1a90eb3f69dc4d66503aa
+
