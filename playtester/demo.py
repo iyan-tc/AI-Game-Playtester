@@ -10,7 +10,7 @@ from concurrent.futures import ProcessPoolExecutor
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from games.demo.server import serve
 from .agent import play
@@ -33,9 +33,10 @@ class DemoVision:
     def decide(self,state,image,size):
         with Image.open(BytesIO(image)) as im:
             rgb=im.convert("RGB")
-            mask=Image.new("1",rgb.size)
-            mask.putdata([r>230 and 160<g<220 and b<145 for r,g,b in rgb.getdata()])
-            bounds=mask.getbbox()
+            difference=ImageChops.difference(rgb,Image.new("RGB",rgb.size,"#ffc569"))
+            channels=difference.split()
+            distance=ImageChops.lighter(channels[0],ImageChops.lighter(channels[1],channels[2]))
+            bounds=distance.point(lambda value: 255 if value==0 else 0).getbbox()
         if not bounds:
             raise RuntimeError("Fixture did not see either signal")
         x,y,_,_=bounds
@@ -92,7 +93,8 @@ def worker(params):
                 persist()
                 reporter.finish()
         if not paid and (state.step_index!=steps or state.last_confirmed_server_revision!=steps or len(state.sessions)!=2):
-            raise RuntimeError("Demo state did not survive reopening Chromium")
+            signals=[(r.step,r.detector_status,r.revision,r.decision.action.x_norm,r.decision.action.y_norm) for r in state.steps]
+            raise RuntimeError(f"Demo checks: steps={state.step_index}, revision={state.last_confirmed_server_revision}, sessions={len(state.sessions)}, signals={signals}")
         return dict(worker=index,steps=state.step_index,start=started,end=time.time(),status=state.status,
                     calls=len(state.usage),cost_usd=str(state.spent_usd),revision=state.last_confirmed_server_revision,
                     browsers_opened=len(state.sessions),action_seconds=[r.elapsed_seconds for r in state.steps])
